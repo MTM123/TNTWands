@@ -31,10 +31,9 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.github.ProSavage</groupId>
-            <artifactId>SavageFactions</artifactId>
-            <version>1.6.x-0.1.21-gbdd5473-400</version>
-            <scope>provided</scope>
+            <groupId>com.github.SaberLLC</groupId>
+            <artifactId>Saber-Factions</artifactId>
+            <version>2.2.7-STABLE</version>
         </dependency>
         <dependency>
             <groupId>org.spigotmc</groupId>

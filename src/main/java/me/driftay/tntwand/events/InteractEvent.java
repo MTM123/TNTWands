@@ -30,6 +30,15 @@ public class InteractEvent implements Listener {
         if (block == null) return;
 
         Action action = event.getAction();
+
+        if (action != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+
+        if (block.getType() != Material.CHEST && block.getType() != Material.TRAPPED_CHEST) {
+            return;
+        }
+
         Player player = event.getPlayer();
         ItemStack itemInHand = player.getItemInHand();
         ItemMeta im = itemInHand.getItemMeta();
@@ -39,48 +48,64 @@ public class InteractEvent implements Listener {
         Faction otherFaction = Board.getInstance().getFactionAt(new FLocation(block.getLocation()));
 
         Faction faction = fplayer.getFaction();
-        if (itemInHand.getType().equals(Material.GOLD_HOE)) {
-            if (im.getDisplayName().equalsIgnoreCase(displayname)) {
-                if (player.getGameMode().equals(GameMode.CREATIVE)) {
-                    event.setCancelled(true);
-                    return;
-                }
-                if (action.equals(Action.RIGHT_CLICK_BLOCK)
-                        && (block.getType().equals(Material.CHEST)
-                        || block.getType().equals(Material.TRAPPED_CHEST))) {
 
-                    Chest chest = (Chest) block.getState();
+        if (player.getGameMode().equals(GameMode.CREATIVE)) {
+            return;
+        }
 
-                    if (HookManager.getPluginMap().get("WorldGuard") != null) {
-                        WorldGuardHook wgHook = ((WorldGuardHook) HookManager.getPluginMap().get("WorldGuard"));
-                        if (!wgHook.canBuild(player, block)) {
-                            event.getPlayer().sendMessage(color(config.getString("Valid-Chunks.Deny-Message").replace("%faction%", otherFaction.getTag())));
-                            return;
-                        }
-                    }
-                    if (!FactionsBlockListener.playerCanBuildDestroyBlock(player, block.getLocation(), "build", true)) {
-                        event.setCancelled(true);
-                        player.sendMessage(color(config.getString("Valid-Chunks.Deny-Message").replace("%faction%", otherFaction.getTag())));
-                        return;
-                    }
-                    int tntcount = 0;
-                    Inventory inventory = chest.getInventory();
-                    for (int i = 0; i < inventory.getSize(); ++i) {
-                        ItemStack tnt = inventory.getItem(i);
-                        if (tnt != null && tnt.getType() == Material.TNT) {
-                            tntcount += tnt.getAmount();
-                            inventory.removeItem(tnt);
-                        }
-                    }
-                    if (tntcount > 0) {
-                        successMessage = successMessage.replace("%amount%", Integer.toString(tntcount));
-                        faction.addTnt(tntcount);
-                        player.sendMessage(successMessage);
-                    }
+        if (itemInHand.getType() != Material.GOLD_HOE
+                || !im.hasDisplayName()
+                || !im.getDisplayName().equalsIgnoreCase(displayname)) {
+            return;
+        }
+
+        Chest chest = (Chest) block.getState();
+
+        if (HookManager.getPluginMap().get("WorldGuard") != null) {
+            WorldGuardHook wgHook = ((WorldGuardHook) HookManager.getPluginMap().get("WorldGuard"));
+            if (!wgHook.canBuild(player, block)) {
+                player.sendMessage(color(config.getString("Valid-Chunks.Deny-Message").replace("%faction%", otherFaction.getTag())));
+                return;
+            }
+        }
+        if (!FactionsBlockListener.playerCanBuildDestroyBlock(player, block.getLocation(), "build", true)) {
+            event.setCancelled(true);
+            player.sendMessage(color(config.getString("Valid-Chunks.Deny-Message").replace("%faction%", otherFaction.getTag())));
+            return;
+        }
+
+        event.setCancelled(true);
+
+        int tntSpaceLeft = faction.getTntBankLimit() - faction.getTnt();
+        if (tntSpaceLeft <= 0) {
+            player.sendMessage(color(config.getString("SavageTnTWand.Bank-Full")));
+            return;
+        }
+
+        int tntcount = 0;
+        Inventory inventory = chest.getInventory();
+        for (int i = 0; i < inventory.getSize(); ++i) {
+            ItemStack tnt = inventory.getItem(i);
+            if (tnt != null && tnt.getType() == Material.TNT) {
+                int space = tntSpaceLeft - tnt.getAmount();
+                if (space >= 0) {
+                    tntcount += tnt.getAmount();
+                    tntSpaceLeft = space;
+                    inventory.removeItem(tnt);
+                } else {
+                    tntcount += tntSpaceLeft;
+                    tnt.setAmount(tnt.getAmount() - tntSpaceLeft);
+                    break;
                 }
             }
-            event.setCancelled(true);
         }
+
+        if (tntcount > 0) {
+            successMessage = successMessage.replace("%amount%", Integer.toString(tntcount));
+            faction.addTnt(tntcount);
+            player.sendMessage(successMessage);
+        }
+
     }
 
     @EventHandler
